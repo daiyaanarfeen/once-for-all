@@ -27,28 +27,28 @@ for i in range(20):
             mid_channels = make_divisible(round(in_channel * e), 8)
 
             if module.inverted_bottleneck is not None:
-                l2 += torch.norm(module.inverted_bottleneck.conv.conv.weight[:mid_channels, :in_channel, :, :]) ** 2
-                l2 += torch.norm(module.inverted_bottleneck.bn.bn.weight[:mid_channels]) ** 2
+                l2 += torch.norm(module.inverted_bottleneck.conv.conv.weight[:mid_channels, :in_channel, :, :], p=1)
+                l2 += torch.norm(module.inverted_bottleneck.bn.bn.weight[:mid_channels], p=1)
                 if module.inverted_bottleneck.bn.bn.bias is not None:
-                    l2 += torch.norm(module.inverted_bottleneck.bn.bn.bias[:mid_channels]) ** 2
+                    l2 += torch.norm(module.inverted_bottleneck.bn.bn.bias[:mid_channels], p=1)
 
-            l2 += torch.norm(module.depth_conv.conv.get_active_filter(mid_channels, k))**2
-            l2 += torch.norm(module.depth_conv.bn.bn.weight[:mid_channels]) ** 2
+            l2 += torch.norm(module.depth_conv.conv.get_active_filter(mid_channels, k), p=1)
+            l2 += torch.norm(module.depth_conv.bn.bn.weight[:mid_channels], p=1)
             if module.depth_conv.bn.bn.bias is not None:
-                l2 += torch.norm(module.depth_conv.bn.bn.bias[:mid_channels]) ** 2
+                l2 += torch.norm(module.depth_conv.bn.bn.bias[:mid_channels], p=1)
             if hasattr(module.depth_conv, 'se'):
                 se_channel = make_divisible(mid_channels // module.depth_conv.se.reduction, divisor=8)
-                l2 += torch.norm(module.depth_conv.se.fc.reduce.weight[:se_channel, :mid_channels, :, :]) ** 2
+                l2 += torch.norm(module.depth_conv.se.fc.reduce.weight[:se_channel, :mid_channels, :, :], p=1)
                 if module.depth_conv.se.fc.reduce.bias is not None:
-                    l2 += torch.norm(module.depth_conv.se.fc.reduce.bias[:se_channel]) ** 2
-                l2 += torch.norm(module.depth_conv.se.fc.expand.weight[:mid_channels, :se_channel, :, :]) ** 2
+                    l2 += torch.norm(module.depth_conv.se.fc.reduce.bias[:se_channel], p=1)
+                l2 += torch.norm(module.depth_conv.se.fc.expand.weight[:mid_channels, :se_channel, :, :], p=1)
                 if module.depth_conv.se.fc.expand.bias is not None:
-                    l2 += torch.norm(module.depth_conv.se.fc.expand.bias[:mid_channels]) ** 2
+                    l2 += torch.norm(module.depth_conv.se.fc.expand.bias[:mid_channels], p=1)
 
-            l2 += torch.norm(module.point_linear.conv.conv.weight[:out_channels[i+1], :mid_channels, :, :]) ** 2
-            l2 += torch.norm(module.point_linear.bn.bn.weight[:out_channels[i+1]]) ** 2
+            l2 += torch.norm(module.point_linear.conv.conv.weight[:out_channels[i+1], :mid_channels, :, :], p=1)
+            l2 += torch.norm(module.point_linear.bn.bn.weight[:out_channels[i+1]], p=1)
             if module.point_linear.bn.bn.bias is not None:
-                l2 += torch.norm(module.point_linear.bn.bn.bias[:out_channels[i+1]]) ** 2
+                l2 += torch.norm(module.point_linear.bn.bn.bias[:out_channels[i+1]], p=1)
 
 
             l2_squared[i, [3, 5, 7].index(k), [3, 4, 6].index(e)] = l2

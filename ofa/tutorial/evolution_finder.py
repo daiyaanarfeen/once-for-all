@@ -13,7 +13,7 @@ class ArchManager:
 		self.kernel_sizes = [3, 5, 7]
 		self.expand_ratios = [3, 4, 6]
 		self.depths = [2, 3, 4]
-		self.resolutions = [160, 176, 192, 208, 224]
+		self.resolutions = [224]
 
 	def random_sample(self):
 		sample = {}
