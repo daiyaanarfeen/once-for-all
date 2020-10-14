@@ -205,9 +205,16 @@ def train(run_manager, args, validate_func=None):
                 }, is_best=is_best)
 
 
-def load_models(run_manager, dynamic_net, model_path=None):
+def load_models(run_manager, dynamic_net, model_path=None, skip_head=False):
     # specify init path
     init = torch.load(model_path, map_location='cpu')['state_dict']
+    if skip_head:
+        pop = []
+        for k in init.keys():
+            if 'classifier' in k:
+                pop.append(k)
+        for k in pop:
+            init.pop(k)
     dynamic_net.load_weights_from_net(init)
     run_manager.write_log('Loaded init from %s' % model_path, 'valid')
 

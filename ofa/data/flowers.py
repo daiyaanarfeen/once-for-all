@@ -14,6 +14,7 @@ class FlowersDataset(data.Dataset):
             self.examples = np.hstack((splits['trnid'][0], splits['valid'][0])) 
         else:
             self.examples = splits['tstid'][0]
+        self.samples = self.examples
         self.labels = scipy.io.loadmat(os.path.join(root_dir, 'imagelabels.mat'))['labels'][0]
         self.transform = transforms
 

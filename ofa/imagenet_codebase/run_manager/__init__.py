@@ -5,6 +5,7 @@
 # from imagenet_codebase.run_manager.run_manager import *
 # from imagenet_codebase.data_providers.imagenet import *
 from ..data_providers.imagenet import ImagenetDataProvider
+from ..data_providers.flowers import FlowersDataProvider
 
 from .run_manager import RunConfig
 from .run_manager import RunManager
@@ -37,6 +38,8 @@ class ImagenetRunConfig(RunConfig):
         if self.__dict__.get('_data_provider', None) is None:
             if self.dataset == ImagenetDataProvider.name():
                 DataProviderClass = ImagenetDataProvider
+            elif self.dataset == FlowersDataProvider.name():
+                DataProviderClass = FlowersDataProvider
             else:
                 raise NotImplementedError
             self.__dict__['_data_provider'] = DataProviderClass(
