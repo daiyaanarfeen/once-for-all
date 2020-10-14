@@ -76,6 +76,8 @@ class DistributedImageNetRunConfig(ImagenetRunConfig):
         if self.__dict__.get('_data_provider', None) is None:
             if self.dataset == ImagenetDataProvider.name():
                 DataProviderClass = ImagenetDataProvider
+            elif self.dataset == FlowersDataProvider.name():
+                DataProviderClass = FlowersDataProvider
             else:
                 raise NotImplementedError
             self.__dict__['_data_provider'] = DataProviderClass(

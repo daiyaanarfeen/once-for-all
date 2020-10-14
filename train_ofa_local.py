@@ -7,12 +7,13 @@ import numpy as np
 import os
 import random
 
+import horovod.torch as hvd
 import torch
 
 from ofa.elastic_nn.modules.dynamic_op import DynamicSeparableConv2d
 from ofa.elastic_nn.networks import OFAMobileNetV3
-from ofa.imagenet_codebase.run_manager import ImagenetRunConfig
-from ofa.imagenet_codebase.run_manager.run_manager import RunManager
+from ofa.imagenet_codebase.run_manager import DistributedImageNetRunConfig
+from ofa.imagenet_codebase.run_manager.distributed_run_manager import DistributedRunManager
 from ofa.imagenet_codebase.data_providers.base_provider import MyRandomResizedCrop
 from ofa.utils import download_url
 from ofa.elastic_nn.training.progressive_shrinking import load_models
@@ -74,9 +75,7 @@ elif args.task == 'expand':
         args.depth_list = '2,3,4'
 else:
     raise NotImplementedError
-
 args.dataset = "flowers"
-num_gpus = 1
 
 args.manual_seed = 0
 
@@ -120,11 +119,17 @@ args.kd_type = 'ce'
 if __name__ == '__main__':
     os.makedirs(args.path, exist_ok=True)
 
+    # Initialize Horovod
+    hvd.init()
+    # Pin GPU to be used to process local rank (one GPU per process)
+    torch.cuda.set_device(hvd.local_rank())
 
     args.teacher_path = download_url(
         'https://hanlab.mit.edu/files/OnceForAll/ofa_checkpoints/ofa_D4_E6_K7',
-        model_dir='.torch/ofa_checkpoints/'
+        model_dir='.torch/ofa_checkpoints/%d' % hvd.rank()
     )
+
+    num_gpus = hvd.size()
 
     torch.manual_seed(args.manual_seed)
     torch.cuda.manual_seed_all(args.manual_seed)
@@ -149,12 +154,13 @@ if __name__ == '__main__':
         args.warmup_lr = args.base_lr
     args.train_batch_size = args.base_batch_size
     args.test_batch_size = args.base_batch_size * 4
-    run_config = ImagenetRunConfig(**args.__dict__, num_replicas=num_gpus)
+    run_config = DistributedImageNetRunConfig(**args.__dict__, num_replicas=num_gpus, rank=hvd.rank())
 
     # print run config information
-    print('Run config:')
-    for k, v in run_config.config.items():
-        print('\t%s: %s' % (k, v))
+    if hvd.rank() == 0:
+        print('Run config:')
+        for k, v in run_config.config.items():
+            print('\t%s: %s' % (k, v))
 
     if args.dy_conv_scaling_mode == -1:
         args.dy_conv_scaling_mode = None
@@ -179,10 +185,15 @@ if __name__ == '__main__':
         )
         args.teacher_model.cuda()
 
-    """ RunManager """
-    distributed_run_manager = RunManager(
-        args.path, net, run_config)
+    """ Distributed RunManager """
+    # Horovod: (optional) compression algorithm.
+    compression = hvd.Compression.fp16 if args.fp16_allreduce else hvd.Compression.none
+    distributed_run_manager = DistributedRunManager(
+        args.path, net, run_config, compression, backward_steps=args.dynamic_batch_size, is_root=(hvd.rank() == 0)
+    )
     distributed_run_manager.save_config()
+    # hvd broadcast
+    distributed_run_manager.broadcast()
 
     # load teacher net weights
     if args.kd_ratio > 0:
@@ -200,8 +211,8 @@ if __name__ == '__main__':
         validate_func_dict['ks_list'] = sorted(args.ks_list)
         if distributed_run_manager.start_epoch == 0:
             model_path = download_url('https://hanlab.mit.edu/files/OnceForAll/ofa_checkpoints/ofa_D4_E6_K7',
-                                      model_dir='.torch/ofa_checkpoints/')
-            load_models(distributed_run_manager, distributed_run_manager.net.module, model_path=model_path, skip_head=True)
+                                      model_dir='.torch/ofa_checkpoints/%d' % hvd.rank())
+            load_models(distributed_run_manager, distributed_run_manager.net, model_path=model_path, skip_head=True)
             distributed_run_manager.write_log('%.3f\t%.3f\t%.3f\t%s' %
                                               validate(distributed_run_manager, **validate_func_dict), 'valid')
         train(distributed_run_manager, args,
